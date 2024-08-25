@@ -1,0 +1,10 @@
+Relatório do Kartódromo Parallel Speed:
+Duração da simulação: 120 segundos
+Total de clientes atendidos: 25
+Total de crianças atendidas: 12
+Total de adultos atendidos: 13
+Tempo médio de espera para clientes atendidos: 104460.48 milissegundos
+Total de clientes não atendidos: 0
+Quantidade de karts utilizados: 25
+Quantidade de capacetes utilizados: 25
+Recursos alocados (Karts e Capacetes): 50
