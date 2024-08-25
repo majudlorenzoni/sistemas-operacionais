@@ -1,40 +1,40 @@
 package trabalhoFinal;
 
-import java.util.Random;
+import java.util.concurrent.Semaphore;
 
 public class GeradorThreads {
-    private Gerenciador gerenciador;
-    private Relatorio relatorio;
+  private Gerenciador gerenciador;
+  private Relatorio relatorio;
+  private Semaphore semaphore;
 
-    public GeradorThreads(Gerenciador gerenciador, Relatorio relatorio) {
-        this.gerenciador = gerenciador;
-        this.relatorio = relatorio;
-    }
+  public GeradorThreads(Gerenciador gerenciador, Relatorio relatorio, Semaphore semaphore) {
+    this.gerenciador = gerenciador;
+    this.relatorio = relatorio;
+    this.semaphore = semaphore;
+  }
 
-    public void criarPilotos(int quantidadePilotos) {
-        Random random = new Random();
-        for (int i = 0; i < quantidadePilotos; i++) {
-            int idade = random.nextInt(50); // Idade aleatória entre 0 e 49
-            String nome = "Piloto " + (i + 1);
-            long tempoEspera = 5000 + random.nextInt(5000); // Tempo de espera aleatório entre 5 e 10 segundos
-            long tempoUso = 60000; // Tempo de uso fixo de 1 minuto
+  public void criarPilotos(int quantidade) {
+    for (int i = 1; i <= quantidade; i++) {
+      try {
+        semaphore.acquire();
 
-            Cliente cliente;
-            if (idade <= 14) {
-                cliente = new Crianca(nome, idade, tempoEspera, tempoUso);
-            } else {
-                cliente = new Adulto(nome, idade, tempoEspera, tempoUso);
-            }
-
-            Piloto piloto = new Piloto(cliente, gerenciador, relatorio);
-            piloto.start(); // Inicia a thread
-
-            // Simula o intervalo entre a chegada dos pilotos
-            try {
-                Thread.sleep(random.nextInt(5000)); // Intervalo aleatório entre 0 e 5 segundos
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        Cliente cliente;
+        if (i % 2 == 0) {
+          cliente = new Crianca("Piloto " + i, 10 + (i % 10), 60000, 10000);
+        } else {
+          cliente = new Adulto("Piloto " + i, 20 + (i % 10), 60000, 10000);
         }
+
+        Piloto piloto = new Piloto(cliente, gerenciador, relatorio);
+
+        Thread thread = new Thread(piloto);
+        thread.start();
+
+        System.out.println("Piloto " + i + " criado e iniciado.");
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        System.err.println("Erro ao adquirir permissão do semáforo: " + e.getMessage());
+      }
     }
+  }
 }
