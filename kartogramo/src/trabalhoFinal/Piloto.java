@@ -1,38 +1,62 @@
 package trabalhoFinal;
 
-public class Piloto extends Thread {
-    private Cliente cliente;
-    private Gerenciador gerenciador;
-    private Relatorio relatorio;
+public class Piloto implements Runnable {
+  private Cliente cliente;
+  private Gerenciador gerenciador;
+  private Relatorio relatorio;
 
-    public Piloto(Cliente cliente, Gerenciador gerenciador, Relatorio relatorio) {
-        this.cliente = cliente;
-        this.gerenciador = gerenciador;
-        this.relatorio = relatorio;
+  public Piloto(Cliente cliente, Gerenciador gerenciador, Relatorio relatorio) {
+    this.cliente = cliente;
+    this.gerenciador = gerenciador;
+    this.relatorio = relatorio;
+  }
+
+  @Override
+  public void run() {
+    try {
+      boolean recursoEncontrado = buscarRecursos();
+      long tempoEspera = System.currentTimeMillis() - cliente.getTempoChegada();
+
+      if (recursoEncontrado) {
+        relatorio.registrarAtendimento(cliente, tempoEspera);
+
+        Thread.sleep(cliente.getTempoUso());
+
+        gerenciador.liberarRecursos(cliente);
+        System.out.println("Cliente " + cliente.getNome() + " usou os recursos e foi embora.");
+      } else {
+        relatorio.registrarNaoAtendimento(cliente, tempoEspera);
+        System.out.println("Cliente " + cliente.getNome() + " não conseguiu obter os recursos e foi embora.");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      System.err.println("Thread interrompida: " + e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      gerenciador.getSemaphoreCapacetes().release();
+      gerenciador.getSemaphoreKarts().release();
     }
+  }
 
-    @Override
-    public void run() {
+  private boolean buscarRecursos() {
+    long tempoInicio = System.currentTimeMillis();
+    boolean recursosDisponiveis = false;
+
+    while (System.currentTimeMillis() - tempoInicio < cliente.getTempoEspera()) {
+      if (gerenciador.atribuirRecursos(cliente)) {
+        recursosDisponiveis = true;
+        break;
+      } else {
         try {
-          System.out.println("Cliente " + cliente.getNome() + " chegou.");
-
-            boolean recursoEncontrado = buscarRecursos();
-            if (recursoEncontrado) {
-                long tempoEspera = System.currentTimeMillis() - cliente.getTempoChegada();
-                relatorio.registrarAtendimento(cliente, tempoEspera);
-
-                // Simula o tempo de uso dos recursos
-                Thread.sleep(cliente.getTempoUso());
-            } else {
-                long tempoEspera = System.currentTimeMillis() - cliente.getTempoChegada();
-                relatorio.registrarNaoAtendimento(cliente, tempoEspera);
-            }
+          Thread.sleep(100); 
         } catch (InterruptedException e) {
-            e.printStackTrace();
+          Thread.currentThread().interrupt();
+          System.err.println("Thread interrompida durante a espera: " + e.getMessage());
         }
+      }
     }
 
-    private boolean buscarRecursos() {
-        return gerenciador.atribuirRecursos(cliente);
-    }
+    return recursosDisponiveis;
+  }
 }

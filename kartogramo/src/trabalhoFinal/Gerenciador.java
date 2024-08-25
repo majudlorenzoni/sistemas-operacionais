@@ -1,77 +1,140 @@
 package trabalhoFinal;
 
-import java.util.Queue;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Semaphore;
 
 public class Gerenciador {
-    private Queue<Cliente> filaCapacetes;
-    private Queue<Cliente> filaKarts;
-    private int kartsDisponiveis;
-    private int capacetesDisponiveis;
+  private List<Kart> karts;
+  private List<Capacete> capacetes;
+  private Semaphore semaphoreKarts;
+  private Semaphore semaphoreCapacetes;
+  private int kartsUtilizados;
+  private int capacetesUtilizados;
 
-    public Gerenciador(int kartsIniciais, int capacetesIniciais) {
-        filaCapacetes = new LinkedList<>();
-        filaKarts = new LinkedList<>();
-        kartsDisponiveis = kartsIniciais;
-        capacetesDisponiveis = capacetesIniciais;
+  public Gerenciador(int numKarts, int numCapacetes) {
+    this.karts = new ArrayList<>();
+    this.capacetes = new ArrayList<>();
+    for (int i = 0; i < numKarts; i++) {
+      karts.add(new Kart(i));
     }
+    for (int i = 0; i < numCapacetes; i++) {
+      capacetes.add(new Capacete(i));
+    }
+    this.semaphoreKarts = new Semaphore(numKarts, true);
+    this.semaphoreCapacetes = new Semaphore(numCapacetes, true);
+    this.kartsUtilizados = 0;
+    this.capacetesUtilizados = 0;
+  }
 
-    public synchronized boolean atribuirRecursos(Cliente cliente) {
-        boolean temKart = false;
-        boolean temCapacete = false;
+  public boolean atribuirRecursos(Cliente cliente) {
+    try {
+      boolean kartAlocado = false;
+      boolean capaceteAlocado = false;
 
-        // Adiciona o cliente na fila correspondente
-        if (cliente instanceof Crianca) {
-            filaCapacetes.add(cliente);
-        } else {
-            filaKarts.add(cliente);
-        }
+      semaphoreKarts.acquire();
+      semaphoreCapacetes.acquire();
 
-        // Tenta alocar um capacete
-        while (filaCapacetes.peek() != null && capacetesDisponiveis > 0) {
-            Cliente c = filaCapacetes.poll();
-            capacetesDisponiveis--;
-            if (c.equals(cliente)) {
-                temCapacete = true;
-            }
-        }
-
-        // Tenta alocar um kart
-        while (filaKarts.peek() != null && kartsDisponiveis > 0) {
-            Cliente c = filaKarts.poll();
-            kartsDisponiveis--;
-            if (c.equals(cliente)) {
-              temKart = true;
-            }
-        }
-
-        // Se o cliente conseguiu ambos os recursos
-        if (temKart && temCapacete) {
-          return true;
-        } else {
-          // Se não conseguiu, deve liberar os recursos alocados
-          if (temKart) {
-            liberarRecursos();
+      synchronized (karts) {
+        for (Kart kart : karts) {
+          if (kart.isDisponivel()) {
+            kart.alocar(cliente);
+            kartsUtilizados++;
+            kartAlocado = true;
+            break;
           }
-            if (temCapacete) {
-                liberarRecursos();
-              }
-            return false;
+        }
+      }
+
+      synchronized (capacetes) {
+        for (Capacete capacete : capacetes) {
+          if (capacete.isDisponivel()) {
+            capacete.alocar(cliente);
+            capacetesUtilizados++;
+            capaceteAlocado = true;
+            break;
           }
-    }
+        }
+      }
 
-    public synchronized void liberarRecursos() {
-        kartsDisponiveis++;
-        capacetesDisponiveis++;
-        System.out.println("Recursos liberados. Karts disponíveis: " + kartsDisponiveis + ", Capacetes disponíveis: " + capacetesDisponiveis);
-    }
-    
-    public int getKartsDisponiveis() {
-        return kartsDisponiveis;
-    }
+      if (kartAlocado && capaceteAlocado) {
+        return true;
 
-    public int getCapacetesDisponiveis() {
-      return capacetesDisponiveis;
+      } else {
+        if (kartAlocado) {
+          liberarRecursos(cliente); 
+        }
+        if (capaceteAlocado) {
+          liberarRecursos(cliente); 
+        }
+        return false;
+      }
+
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      System.err.println("Interrupção ao tentar adquirir recursos: " + e.getMessage());
+      return false;
+    } finally {
+      semaphoreKarts.release();
+      semaphoreCapacetes.release();
+
     }
   }
-  
+
+  public void liberarRecursos(Cliente cliente) {
+    liberarRecursoKart(cliente);
+    liberarRecursoCapacete(cliente);
+  }
+
+  private void liberarRecursoKart(Cliente cliente) {
+    synchronized (karts) {
+      for (Kart kart : karts) {
+        if (kart.getClienteAtual() != null && kart.getClienteAtual().equals(cliente)) {
+          kart.liberar();
+          break;
+        }
+      }
+    }
+  }
+
+  private void liberarRecursoCapacete(Cliente cliente) {
+    synchronized (capacetes) {
+      for (Capacete capacete : capacetes) {
+        if (capacete.getClienteAtual() != null && capacete.getClienteAtual().equals(cliente)) {
+          capacete.liberar();
+          break;
+        }
+      }
+    }
+  }
+
+  public int getKartsDisponiveis() {
+    return semaphoreKarts.availablePermits();
+  }
+
+  public int getCapacetesDisponiveis() {
+    return semaphoreCapacetes.availablePermits();
+  }
+
+  public void setSemaphores(Semaphore semaphoreKarts, Semaphore semaphoreCapacetes) {
+    this.semaphoreKarts = semaphoreKarts;
+    this.semaphoreCapacetes = semaphoreCapacetes;
+  }
+
+  public Semaphore getSemaphoreKarts() {
+    return semaphoreKarts;
+  }
+
+  public Semaphore getSemaphoreCapacetes() {
+    return semaphoreCapacetes;
+  }
+
+  public int getKartsUtilizados() {
+    return kartsUtilizados;
+  }
+
+  public int getCapacetesUtilizados() {
+    return capacetesUtilizados;
+  }
+
+}
